@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>小镇杂货铺 · 3D试玩版</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap');
+:root{--ink:#43534d;--mint:#dcefe5;--cream:#fffaf0;--pink:#f6dce0;--blue:#dceaf4;--line:#d9e4d9;--shadow:0 10px 28px #40564b20}
+*{box-sizing:border-box}body{margin:0;font-family:'Noto Sans SC',system-ui,sans-serif;color:var(--ink);background:#e8f0e7;overflow:hidden}
+#game{position:fixed;inset:0;background:linear-gradient(#cfe5e5,#f2e9d6)}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+.topbar{position:fixed;top:14px;left:14px;right:14px;display:flex;gap:10px;align-items:flex-start;justify-content:space-between;pointer-events:none}
+.brand,.stats,.task{background:#fffaf0eF;border:1px solid #fff;border-radius:18px;box-shadow:var(--shadow);backdrop-filter:blur(10px);padding:10px 14px;pointer-events:auto}
+.brand{min-width:190px}.brand b{font-size:18px;display:block}.brand small{font-size:11px;color:#82948a}
+.stats{display:flex;gap:15px;align-items:center;font-size:13px;font-weight:700}.stat span{display:block;font-size:10px;color:#82948a;font-weight:500}.task{font-size:12px;max-width:210px;line-height:1.6}
+.bottom{position:fixed;left:14px;right:14px;bottom:14px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;pointer-events:none}
+.panel{background:#fffaf0ed;border:1px solid #fff;border-radius:20px;box-shadow:var(--shadow);padding:12px;pointer-events:auto;backdrop-filter:blur(10px)}
+.controls{display:flex;gap:7px;flex-wrap:wrap;max-width:min(620px,70vw)}
+button{border:0;border-radius:13px;padding:10px 13px;font:600 12px inherit;font-family:inherit;color:var(--ink);background:#e4efe7;cursor:pointer;box-shadow:inset 0 -2px #cbded0;transition:.15s}
+button:active{transform:translateY(1px);box-shadow:none}button.primary{background:#b8ddcb}button.pink{background:#f4d9df}button.blue{background:#d9e9f3}button:disabled{opacity:.45;cursor:not-allowed}
+.daybox{min-width:190px;font-size:12px;line-height:1.8}.daybox b{font-size:14px}.bar{height:7px;border-radius:9px;background:#e7ece5;overflow:hidden;margin:5px 0}.bar i{display:block;height:100%;background:#a8d3bb;width:0}
+.toast{position:fixed;left:50%;top:90px;transform:translateX(-50%);background:#42584e;color:white;padding:10px 16px;border-radius:99px;font-size:12px;opacity:0;transition:.25s;pointer-events:none;box-shadow:var(--shadow);white-space:nowrap}.toast.show{opacity:1}
+.help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#fffaf0ed;padding:16px 20px;border-radius:18px;box-shadow:var(--shadow);font-size:12px;text-align:center;pointer-events:none;line-height:1.7;opacity:1;transition:opacity .5s}.help.hide{opacity:0}
+@media(max-width:650px){.topbar{top:8px;left:8px;right:8px;gap:6px}.brand{min-width:0;padding:8px 10px}.brand b{font-size:14px}.brand small{display:none}.stats{gap:8px;padding:8px;font-size:11px}.task{display:none}.bottom{left:8px;right:8px;bottom:8px;align-items:stretch}.controls{max-width:65vw;gap:5px}.panel{padding:8px;border-radius:16px}.controls button{padding:9px 10px;font-size:11px}.daybox{min-width:120px;font-size:10px}.daybox b{font-size:12px}}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div class="topbar">
+  <div class="brand"><b>🌿 小镇杂货铺</b><small>Little Town Grocery · 3D 小店日记</small></div>
+  <div class="stats">
+    <div class="stat">🪙 <strong id="money">RM 180</strong><span>钱包余额</span></div>
+    <div class="stat">⭐ <strong id="rep">0</strong><span>小镇人气</span></div>
+    <div class="stat">🛍️ <strong id="sales">0</strong><span>今日订单</span></div>
+  </div>
+  <div class="task">📌 今日小目标<br><b id="goal">卖出 5 件商品</b><br><span id="goalProgress">进度：0 / 5</span></div>
+</div>
+<div class="toast" id="toast"></div>
+<div id="inventoryPanel" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,92vw);max-height:75vh;overflow:auto;background:#fffaf0f2;border:1px solid white;border-radius:22px;box-shadow:0 18px 55px #344b3e44;padding:18px;z-index:5;backdrop-filter:blur(12px)">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="font-size:17px">🧺 商品库存管理</b><button id="inventoryClose" class="pink">关闭 ✕</button></div>
+  <div style="font-size:11px;color:#84958b;margin-bottom:12px">顾客会根据库存挑选商品；卖完后货架会显示缺货。点击补货可增加指定商品数量。</div>
+  <div id="inventoryRows"></div>
+</div>
+<div id="managementPanel" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(540px,94vw);max-height:78vh;overflow:auto;background:#fffaf0f5;border:1px solid white;border-radius:22px;box-shadow:0 18px 55px #344b3e44;padding:18px;z-index:7;backdrop-filter:blur(12px)">
+ <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><b style="font-size:17px">🏷️ 商品与货架管理</b><button id="manageClose" class="pink">关闭 ✕</button></div>
+ <div style="font-size:11px;color:#82948a;margin-bottom:12px">选择商品、调整售价，并安排它要摆在哪一组货架。保存后会一直保留。</div>
+ <div id="manageRows"></div>
+</div>
+<div id="upgradePanel" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,92vw);max-height:78vh;overflow:auto;background:#fffaf0f5;border:1px solid white;border-radius:22px;box-shadow:0 18px 55px #344b3e44;padding:18px;z-index:7;backdrop-filter:blur(12px)">
+ <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><b style="font-size:17px">🏡 店铺升级</b><button id="upgradeClose" class="pink">关闭 ✕</button></div>
+ <div id="upgradeRows"></div>
+</div>
+<div class="help" id="help">欢迎来到你的小杂货铺！<br>拖动鼠标 / 手指旋转视角，滚轮 / 双指缩放。<br>点击下方按钮补货、开门营业吧 🌷</div>
+<div class="bottom">
+  <div class="panel controls">
+    <button class="primary" id="openBtn">🚪 开门营业</button>
+    <button id="restockBtn">📦 补货 RM 30</button>
+    <button class="blue" id="inventoryBtn">🧺 商品库存</button>
+    <button id="manageBtn">🏷️ 商品与货架</button>
+    <button id="upgradeBtn">🏡 店铺升级</button>
+    <button id="weatherBtn" class="blue">🌤️ 天气：晴天</button>
+    <button class="blue" id="autoBtn">✨ 自动补货：关</button>
+    <button class="pink" id="closeBtn">🌙 今日打烊</button>
+    <button id="resetBtn">↻ 重置游戏</button>
+  </div>
+  <div class="panel daybox">
+    <b id="dayLabel">☀️ 第 1 天 · 晴朗</b><br>
+    今日营业额：<strong id="todayRevenue">RM 0</strong>
+    <div class="bar"><i id="dayBar"></i></div>
+    <span id="storeStatus">店铺休息中 · 准备开门</span>
+  </div>
+</div>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+const mount=document.getElementById('game');
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0xcfe4e1); scene.fog=new THREE.Fog(0xcfe4e1,18,34);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,100); camera.position.set(10,8,12);
+const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15; mount.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement); controls.target.set(0,1.3,0); controls.enableDamping=true; controls.maxPolarAngle=Math.PI*.48; controls.minDistance=7; controls.maxDistance=23; controls.minAzimuthAngle=-Math.PI*.75; controls.maxAzimuthAngle=Math.PI*.75;
+scene.add(new THREE.HemisphereLight(0xfff7e8,0x8ca79c,2.0));
+const sun=new THREE.DirectionalLight(0xfff2d9,2.6);sun.position.set(-5,10,7);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-12;sun.shadow.camera.right=12;sun.shadow.camera.top=12;sun.shadow.camera.bottom=-12;scene.add(sun);
+const mat=(c,r=.85)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
+const wood=mat(0xb9875f),woodLight=mat(0xd6ad7f),cream=mat(0xf7eedb),sage=mat(0x9fbea6),pink=mat(0xe9aeb6),blue=mat(0x9fc5d5),dark=mat(0x53665e),floorMat=mat(0xdcc8a6);
+function box(w,h,d,m,x,y,z,group=scene){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;group.add(o);return o}
+function cyl(rt,rb,h,m,x,y,z,group=scene){const o=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,16),m);o.position.set(x,y,z);o.castShadow=true;group.add(o);return o}
+function sphere(r,m,x,y,z,group=scene){const o=new THREE.Mesh(new THREE.SphereGeometry(r,18,14),m);o.position.set(x,y,z);o.castShadow=true;group.add(o);return o}
+const floor=box(15,.25,12,floorMat,0,-.15,0); 
+// store walls, roof frame and front awning
+box(15,5,.25,cream,0,2.35,-5.8);box(.25,5,11.5,cream,-7.35,2.35,0);box(.25,5,11.5,cream,7.35,2.35,0);
+box(15,.22,.3,wood,0,4.9,-5.65);
+for(let x=-6.8;x<=6.81;x+=1.7)box(.12,4.8,.16,wood,x,2.35,-5.52);
+box(15,.16,1.3,wood,0,4.95,-5.1);
+// shop sign
+box(4.2,.75,.18,sage,0,4.25,-5.35); 
+// sign lettering canvas
+const signCanvas=document.createElement('canvas');signCanvas.width=512;signCanvas.height=100;const ctx=signCanvas.getContext('2d');ctx.fillStyle='#789b83';ctx.fillRect(0,0,512,100);ctx.font='bold 48px sans-serif';ctx.fillStyle='#fffaf0';ctx.textAlign='center';ctx.fillText('小 镇 杂 货 铺',256,66);const signTex=new THREE.CanvasTexture(signCanvas);const sign=new THREE.Mesh(new THREE.PlaneGeometry(4.0,.62),new THREE.MeshBasicMaterial({map:signTex}));sign.position.set(0,4.25,-5.24);scene.add(sign);
+// awning stripes
+for(let i=0;i<12;i++){box(1.2,.12,.95,i%2?pink:cream,-6.6+i*1.2,4.25,-4.8)}
+// windows
+for(const x of [-5.4,5.4]){box(2.1,2.2,.1,blue,x,2.5,-5.62);box(2.25,.12,.12,wood,x,2.5,-5.5);box(.12,2.3,.12,wood,x,2.5,-5.5)}
+// door frame
+box(1.5,2.8,.18,wood,0,1.45,-5.55);box(1.25,2.6,.08,blue,0,1.45,-5.43);sphere(.07,woodLight,.48,1.4,-5.32);
+// floor boards
+for(let z=-5;z<5.5;z+=1)box(14.5,.025,.025,woodLight,0,.005,z);
+// shelves along back and sides
+const shelfGroups=[];
+function makeShelf(x,z,items=4){const g=new THREE.Group();scene.add(g);g.position.set(x,0,z);box(3.0,.18,.8,wood,0,.35,0,g);box(3,.16,.8,wood,0,1.45,0,g);box(3,.16,.8,wood,0,2.55,0,g);box(.14,2.8,.18,woodLight,-1.43,1.55,0,g);box(.14,2.8,.18,woodLight,1.43,1.55,0,g);for(let j=0;j<3;j++)box(2.8,.07,.08,woodLight,0,.75+j*.92,.36,g);shelfGroups.push(g);return g}
+const backShelf=makeShelf(-3.7,-4.45),sideShelf=makeShelf(4.9,-1.7);sideShelf.rotation.y=-Math.PI/2;
+const colors=[pink,blue,sage,mat(0xd7b77e),mat(0xb8a8d8),mat(0xe6c7a0)];
+const productNames=['牛奶','草莓果酱','饼干','苹果汁','面包','罐头'];
+const products=[];
+const stockItems=[
+ {name:'牛奶',emoji:'🥛',stock:12,price:6,cost:3,color:'#d9e9f3',shelf:0},
+ {name:'草莓果酱',emoji:'🍓',stock:8,price:9,cost:5,color:'#f3d8df',shelf:0},
+ {name:'饼干',emoji:'🍪',stock:15,price:5,cost:2,color:'#e8d2b1',shelf:1},
+ {name:'苹果汁',emoji:'🧃',stock:10,price:7,cost:3,color:'#dcebdc',shelf:1},
+ {name:'面包',emoji:'🍞',stock:10,price:6,cost:3,color:'#e9d8b7',shelf:0},
+ {name:'罐头',emoji:'🥫',stock:8,price:8,cost:4,color:'#d9d0ed',shelf:1}
+];
+
+function addProducts(g,seed){for(let row=0;row<3;row++)for(let i=0;i<5;i++){const x=-1.12+i*.56,y=.58+row*.92,z=.03+(i%2)*.04;const m=colors[(i+row+seed)%colors.length];const p=box(.34,.45,.34,m,x,y,z,g);p.userData.product=true;p.userData.stockIndex=(i+row+seed)%stockItems.length;products.push(p);if((i+row)%3===0)sphere(.12,mat(0xf0d58d),x,y+.27,z,g)}}
+addProducts(backShelf,0);addProducts(sideShelf,2);
+// Tap a 3D product to inspect its live price and stock.
+const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+renderer.domElement.addEventListener('pointerup',ev=>{
+ if(controls.state!==-1 && ev.pointerType==='touch'){} 
+ const rect=renderer.domElement.getBoundingClientRect();
+ pointer.x=((ev.clientX-rect.left)/rect.width)*2-1;
+ pointer.y=-((ev.clientY-rect.top)/rect.height)*2+1;
+ raycaster.setFromCamera(pointer,camera);
+ const hits=raycaster.intersectObjects(products,false);
+ if(hits.length){
+  const item=stockItems[hits[0].object.userData.stockIndex];
+  toast(item.emoji+' '+item.name+' · 库存 '+item.stock+' 件 · 售价 RM '+item.price);
+ }
+});
+
+// counter, till and little display
+box(3.2,1.15,1.25,woodLight,1.4,.58,2.8);box(3.3,.15,1.35,wood,1.4,1.22,2.8);box(.65,.35,.5,dark,.65,1.48,2.55);box(.3,.08,.28,mat(0x9ed3bd),.65,1.68,2.55);
+for(let i=0;i<3;i++)cyl(.13,.13,.3,colors[i],2.2+i*.45,1.42,2.75);
+// rug
+const rug=new THREE.Mesh(new THREE.CircleGeometry(1.5,40),mat(0xc6d9c7));rug.rotation.x=-Math.PI/2;rug.position.set(-1.1,.015,2.2);scene.add(rug);
+// potted plants
+function plant(x,z){cyl(.28,.34,.42,pink,x,.22,z);for(let i=0;i<5;i++){const a=i*Math.PI*2/5;sphere(.18,sage,x+Math.cos(a)*.22,.65+Math.sin(i)*.08,z+Math.sin(a)*.22)}}
+plant(-6.3,4.4);plant(6.1,4.5);plant(-6.2,-3.2);
+// hanging lamps
+for(const x of [-3,3]){cyl(.04,.04,1,dark,x,4.1,0);cyl(.48,.18,.35,mat(0xf4dfac),x,3.55,0)}
+// cute cat
+const cat=new THREE.Group();scene.add(cat);cat.position.set(-4.9,.05,2.5);
+sphere(.42,mat(0xd98c55),0,.55,0,cat);sphere(.31,mat(0xe4a36a),.22,.9,.02,cat);
+for(const x of [-.02,.42]){const ear=new THREE.Mesh(new THREE.ConeGeometry(.13,.28,4),mat(0xd98c55));ear.position.set(x,1.16,.0);ear.rotation.z=x<.1?.18:-.18;cat.add(ear)}
+for(const x of [.12,.32])sphere(.035,dark,x,.94,.28,cat);sphere(.045,pink,.22,.84,.31,cat);
+for(const x of [-.18,.55])cyl(.07,.07,.35,mat(0xd98c55),x,.18,0,cat);
+const tail=new THREE.Mesh(new THREE.TorusGeometry(.3,.07,8,20,Math.PI*1.4),mat(0xd98c55));tail.position.set(-.4,.65,-.05);tail.rotation.z=1;cat.add(tail);
+// street garden visible outside
+for(let i=0;i<9;i++){const x=-6+i*1.5;const trunk=cyl(.12,.18,1.5,wood,x,.75,-7.2);sphere(.75,sage,x,1.8,-7.2);sphere(.48,mat(0xb7d0b1),x+.35,2.1,-7.1)}
+// customers
+const customerMats=[mat(0xd68c81),mat(0x779bb7),mat(0x9cae7d),mat(0xc39cce),mat(0xd3ad6d)];
+const customers=[];let customerClock=0;let open=false,auto=false,day=1,money=180,rep=0,orders=0,revenue=0,daySeconds=0,goal=5;
+let shopLevel=1, decorLevel=0, shelfCapacity=20;
+let goalClaimed=false, weatherMode=0, dayNight=false;
+function makeCustomer(){const g=new THREE.Group();scene.add(g);const body= new THREE.Mesh(new THREE.CapsuleGeometry(.28,.65,5,10),customerMats[Math.floor(Math.random()*customerMats.length)]);body.position.y=.8;body.castShadow=true;g.add(body);sphere(.25,mat(0xf0c9a9),0,1.45,0,g);const hair=sphere(.26,mat(0x665047),0,1.57,-.05,g);hair.scale.set(1,.55,1);for(const x of [-.1,.1])sphere(.025,dark,x,1.47,.22,g);for(const x of [-.16,.16])cyl(.1,.1,.55,mat(0xeee0ce),x,.25,0,g);g.position.set(-.3,.05,5.4);const choice=pickStock();
+g.userData={phase:0,t:0,target:new THREE.Vector3((Math.random()>.5? -3.7:4.9),.05,(Math.random()>.5?-4.0:-1.7)),bought:false,choice:choice,patience:8+Math.random()*5};
+if(choice){const bubble=new THREE.Group();bubble.position.set(0,2.05,0);g.add(bubble);const bg=new THREE.Mesh(new THREE.SphereGeometry(.22,12,10),mat(0xfffaf0));bg.scale.set(1.5,.75,.25);bubble.add(bg);const cv=document.createElement('canvas');cv.width=256;cv.height=96;const cctx=cv.getContext('2d');cctx.font='bold 48px sans-serif';cctx.textAlign='center';cctx.fillText(choice.it.emoji,128,65);const tx=new THREE.CanvasTexture(cv);const sprite=new THREE.Mesh(new THREE.PlaneGeometry(.55,.28),new THREE.MeshBasicMaterial({map:tx,transparent:true}));sprite.position.z=.06;bubble.add(sprite);g.userData.bubble=bubble;}customers.push(g)}
+function spawn(){if(customers.length<5)makeCustomer()}
+function updateUI(){document.getElementById('money').textContent='RM '+money.toFixed(0);document.getElementById('rep').textContent=rep;document.getElementById('sales').textContent=orders;document.getElementById('todayRevenue').textContent='RM '+revenue.toFixed(2);document.getElementById('dayLabel').textContent='☀️ 第 '+day+' 天 · 晴朗 · 店铺 Lv.'+shopLevel;document.getElementById('goalProgress').textContent='进度：'+Math.min(orders,goal)+' / '+goal+(goalClaimed?' · 奖励已领取':'');document.getElementById('dayBar').style.width=Math.min(100,orders/goal*100)+'%';document.getElementById('storeStatus').textContent=open?'营业中 · 顾客正在逛店 🌷':'店铺休息中 · 准备开门';document.getElementById('openBtn').textContent=open?'🟢 正在营业':'🚪 开门营业';document.getElementById('autoBtn').textContent='✨ 自动补货：'+(auto?'开':'关')}
+function toast(t){const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1800)}
+function restock(){if(money<30){toast('金币不足，今天先努力营业吧！');return}money-=30;
+stockItems.forEach(it=>it.stock+=2);
+toast('补货成功！每种商品 +2 件 📦');
+updateShelfVisibility();updateUI();save()}
+document.getElementById('openBtn').onclick=()=>{open=!open;if(open){toast('欢迎光临！小镇杂货铺开门啦 🌼');customerClock=1}else toast('暂时停止接待新客人');updateUI()};
+document.getElementById('restockBtn').onclick=restock;
+document.getElementById('autoBtn').onclick=()=>{auto=!auto;updateUI();toast(auto?'自动补货已开启':'自动补货已关闭')};
+document.getElementById('closeBtn').onclick=()=>{if(!open&&orders===0){toast('今天还没有开始营业哦');return}open=false;const bonus=Math.round(revenue*.1);money+=bonus;toast('第 '+day+' 天结束！营业额 RM '+revenue.toFixed(2)+'，人气奖励 +RM '+bonus);day++;orders=0;revenue=0;goalClaimed=false;customers.forEach(c=>scene.remove(c));customers.length=0;updateUI();save()};
+document.getElementById('resetBtn').onclick=()=>{if(confirm('确定重置所有游戏进度吗？')){localStorage.removeItem('littleTown3D');location.reload()}};
+document.getElementById('weatherBtn').onclick=()=>{
+ weatherMode=(weatherMode+1)%3;
+ const modes=[['晴天',0xcfe4e1,2.6],['微雨',0xc4d6df,1.55],['傍晚',0xd9cbd9,1.05]];
+ const m=modes[weatherMode];scene.background=new THREE.Color(m[1]);scene.fog.color=new THREE.Color(m[1]);sun.intensity=m[2];
+ document.getElementById('weatherBtn').textContent=['🌤️ 天气：晴天','🌧️ 天气：微雨','🌇 天气：傍晚'][weatherMode];
+ toast('小镇天气已切换：'+m[0]);save();
+};
+
+function checkDailyGoal(){
+ if(!goalClaimed && orders>=goal){
+  goalClaimed=true;money+=30;rep+=3;
+  toast('🎉 今日目标达成！奖励 RM 30 + 人气 3');
+  updateUI();save();
+ }
+}
+function save(){localStorage.setItem('littleTown3D',JSON.stringify({day,money,rep,orders,revenue,auto,stockItems,shopLevel,decorLevel,shelfCapacity,goalClaimed,weatherMode}))}
+function load(){try{const s=JSON.parse(localStorage.getItem('littleTown3D'));if(s){day=s.day||1;money=s.money??180;rep=s.rep||0;orders=s.orders||0;revenue=s.revenue||0;auto=!!s.auto;if(Array.isArray(s.stockItems))s.stockItems.forEach((it,i)=>{if(stockItems[i])Object.assign(stockItems[i],it)});
+shopLevel=s.shopLevel||1;decorLevel=s.decorLevel||0;shelfCapacity=s.shelfCapacity||20;
+goalClaimed=!!s.goalClaimed;weatherMode=s.weatherMode||0}}catch(e){}updateUI();updateShelfVisibility()}
+load();
+const invPanel=document.getElementById('inventoryPanel');
+document.getElementById('inventoryBtn').onclick=()=>{renderInventory();invPanel.style.display='block'};
+document.getElementById('inventoryClose').onclick=()=>invPanel.style.display='none';
+const managePanel=document.getElementById('managementPanel'),upgradePanel=document.getElementById('upgradePanel');
+document.getElementById('manageBtn').onclick=()=>{renderManage();managePanel.style.display='block'};
+document.getElementById('manageClose').onclick=()=>managePanel.style.display='none';
+document.getElementById('upgradeBtn').onclick=()=>{renderUpgrades();upgradePanel.style.display='block'};
+document.getElementById('upgradeClose').onclick=()=>upgradePanel.style.display='none';
+function renderManage(){
+ const host=document.getElementById('manageRows');
+ host.innerHTML=stockItems.map((it,i)=>`<div style="display:grid;grid-template-columns:1fr 82px 112px;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid #e5e9df">
+ <div><b style="font-size:13px">${it.emoji} ${it.name}</b><div style="font-size:11px;color:#84958b">库存 ${it.stock} · 成本 RM ${it.cost}</div></div>
+ <label style="font-size:10px">售价 RM<input data-price="${i}" type="number" min="1" max="99" value="${it.price}" style="width:70px;padding:7px;border:1px solid #d9e4d9;border-radius:9px;background:white;color:#43534d"></label>
+ <label style="font-size:10px">摆放货架<select data-shelf="${i}" style="width:108px;padding:7px;border:1px solid #d9e4d9;border-radius:9px;background:white;color:#43534d"><option value="0" ${it.shelf===0?'selected':''}>后方木货架</option><option value="1" ${it.shelf===1?'selected':''}>右侧货架</option></select></label>
+ </div>`).join('')+`<button id="saveManage" class="primary" style="width:100%;margin-top:14px">保存商品设置</button>`;
+ host.querySelector('#saveManage').onclick=()=>{
+  host.querySelectorAll('[data-price]').forEach(el=>{stockItems[+el.dataset.price].price=Math.max(1,Math.min(99,Number(el.value)||1))});
+  host.querySelectorAll('[data-shelf]').forEach(el=>{stockItems[+el.dataset.shelf].shelf=Number(el.value)});
+  updateShelfVisibility();save();toast('商品售价与货架位置已保存 🌿');renderManage();
+ };
+}
+function renderUpgrades(){
+ const list=[
+  {name:'扩大店面',desc:'让小店更宽敞，提升每日客流上限。',cost:160,level:shopLevel,max:4,key:'shop'},
+  {name:'升级货架',desc:'增加商品陈列空间，解锁更高级的店铺外观。',cost:100+shopLevel*45,level:shopLevel,max:4,key:'shelf'},
+  {name:'温馨装饰',desc:'增加花草与装饰细节，提升小镇人气。',cost:90+decorLevel*70,level:decorLevel,max:5,key:'decor'}
+ ];
+ document.getElementById('upgradeRows').innerHTML=list.map(x=>`<div style="padding:12px 0;border-bottom:1px solid #e5e9df"><b>${x.key==='shop'?'🏠':x.key==='shelf'?'🪵':'🌷'} ${x.name} · Lv.${x.level}</b><div style="font-size:11px;color:#82948a;margin:5px 0">${x.desc}</div><button data-up="${x.key}" ${x.level>=x.max?'disabled':''} class="primary">升级 RM ${x.cost}</button></div>`).join('');
+ document.querySelectorAll('[data-up]').forEach(btn=>btn.onclick=()=>{
+  const k=btn.dataset.up;let cost=k==='shop'?160:k==='shelf'?100+shopLevel*45:90+decorLevel*70;
+  if(money<cost){toast('金币不足，继续营业赚取金币吧');return}
+  if(k==='shop'&&shopLevel<4)shopLevel++;
+  if(k==='shelf'&&shopLevel<4){shopLevel++;shelfCapacity+=10}
+  if(k==='decor'&&decorLevel<5){decorLevel++;rep+=5;addDecor();}
+  money-=cost;save();updateUI();renderUpgrades();toast('店铺升级成功！小镇越来越热闹了 ✨');
+ });
+}
+function addDecor(){
+ const colors=[mat(0xf2cbd4),mat(0xb9d5c0),mat(0xc5dced),mat(0xe7d5ad)];
+ for(let i=0;i<decorLevel;i++){const x=-5.7+(i%3)*5.5,z=4.9-Math.floor(i/3)*2.2;const pot=cyl(.18,.22,.28,pink,x,.14,z);sphere(.3,colors[i%colors.length],x,.48,z)}
+}
+
+function renderInventory(){
+ const host=document.getElementById('inventoryRows');
+ host.innerHTML=stockItems.map((it,i)=>`<div style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid #e5e9df">
+ <div style="font-size:25px;width:34px">${it.emoji}</div><div style="flex:1"><b style="font-size:13px">${it.name}</b><div style="font-size:11px;color:#89978e">售价 RM ${it.price} · 进货 RM ${it.cost}</div></div>
+ <div style="text-align:right;min-width:50px"><b>${it.stock}</b><div style="font-size:10px;color:#89978e">库存</div></div>
+ <button data-buy="${i}" style="padding:8px 10px">+5</button></div>`).join('');
+ host.querySelectorAll('[data-buy]').forEach(btn=>btn.onclick=()=>{const i=Number(btn.dataset.buy),it=stockItems[i],cost=it.cost*5;if(money<cost){toast('金币不足，无法进货');return}money-=cost;it.stock+=5;updateShelfVisibility();renderInventory();updateUI();save();toast(it.name+' +5 件，进货 RM '+cost)});
+}
+function updateShelfVisibility(){
+ products.forEach((p,idx)=>{
+   const it=stockItems[p.userData.stockIndex];
+   p.visible=it.stock>0;
+   // Product arrangement changes with selected shelf assignment.
+   const targetShelf=it.shelf===0?backShelf:sideShelf;
+   const sourceShelf=p.parent;
+   if(sourceShelf!==targetShelf){
+     const world=p.position.clone(); sourceShelf.remove(p); targetShelf.add(p);
+     p.position.set((idx%5-2)*.48,.58+Math.floor((idx/5)%3)*.92,.12);
+   }
+ });
+}
+function pickStock(){
+ const available=stockItems.map((it,i)=>({it,i})).filter(x=>x.it.stock>0);
+ if(!available.length)return null;
+ return available[Math.floor(Math.random()*available.length)];
+}
+let last=performance.now();
+function animate(now){requestAnimationFrame(animate);const dt=Math.min(.04,(now-last)/1000);last=now;controls.update();cat.rotation.y=Math.sin(now*.0006)*.08;
+if(open){daySeconds+=dt;customerClock+=dt;if(customerClock>3.4){customerClock=0;spawn()}for(let i=customers.length-1;i>=0;i--){const c=customers[i],u=c.userData;u.t+=dt;if(u.phase===0){c.position.x+=(u.target.x-c.position.x)*dt*.8;c.position.z+=(u.target.z-c.position.z)*dt*.8;if(u.t>2.2){u.phase=1;u.t=0}}else if(u.phase===1){c.rotation.y=Math.sin(now*.002)*.12;if(u.t>2.8){u.phase=2;u.t=0}}else{c.position.x+=(1.3-c.position.x)*dt*.9;c.position.z+=(2.3-c.position.z)*dt*.9;if(u.t>1.6){const choice=u.choice;
+if(choice && choice.it.stock>0){
+ const price=choice.it.price;choice.it.stock--;revenue+=price;money+=price;rep+=1;orders++;
+ toast(choice.it.emoji+' '+choice.it.name+' 售出 +RM '+price);
+ updateShelfVisibility();
+}else{
+ toast('有顾客想买东西，可惜货架缺货了 😿');
+}
+scene.remove(c);customers.splice(i,1);if(auto&&orders%4===0&&money>30)restock();updateUI();save()}}}if(daySeconds>65){daySeconds=0;document.getElementById('storeStatus').textContent='客人慢慢变多了，继续加油！'}}renderer.render(scene,camera)}
+requestAnimationFrame(animate);
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+addEventListener('pagehide',save);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save()});
+setTimeout(()=>document.getElementById('help').classList.add('hide'),7000);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){invPanel.style.display='none';managePanel.style.display='none';upgradePanel.style.display='none'}});
+</script>
+</body></html>
