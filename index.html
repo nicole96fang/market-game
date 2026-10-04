@@ -8,8 +8,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap');
 :root{--ink:#43534d;--mint:#dcefe5;--cream:#fffaf0;--pink:#f6dce0;--blue:#dceaf4;--line:#d9e4d9;--shadow:0 10px 28px #40564b20}
 *{box-sizing:border-box}body{margin:0;font-family:'Noto Sans SC',system-ui,sans-serif;color:var(--ink);background:#e8f0e7;overflow:hidden}
-#game{position:fixed;inset:0;background:linear-gradient(#cfe5e5,#f2e9d6)}
-canvas{display:block;width:100%;height:100%;touch-action:none}
+#game{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;background:linear-gradient(#cfe5e5,#f2e9d6)}
+canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
 .topbar{position:fixed;top:14px;left:14px;right:14px;display:flex;gap:10px;align-items:flex-start;justify-content:space-between;pointer-events:none}
 .brand,.stats,.task{background:#fffaf0eF;border:1px solid #fff;border-radius:18px;box-shadow:var(--shadow);backdrop-filter:blur(10px);padding:10px 14px;pointer-events:auto}
 .brand{min-width:190px}.brand b{font-size:18px;display:block}.brand small{font-size:11px;color:#82948a}
@@ -81,6 +81,9 @@ button:active{transform:translateY(1px);box-shadow:none}button.primary{backgroun
     <button id="weatherBtn" class="blue">🌤️ 天气：晴天</button>
     <button class="blue" id="autoBtn">✨ 自动补货：关</button>
     <button class="pink" id="closeBtn">🌙 今日打烊</button>
+    <button id="supplierBtn">🚚 批发市场</button>
+    <button id="questBtn">📮 小镇委托</button>
+    <button id="ledgerBtn">📒 经营账簿</button>
     <button id="resetBtn">↻ 重置游戏</button>
   </div>
   <div class="panel daybox">
@@ -99,11 +102,11 @@ import {OrbitControls} from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples
 
 const mount=document.getElementById('game');
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0xc7e4e2); scene.fog=new THREE.Fog(0xc7e4e2,22,42);
-const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,100); camera.position.set(11.8,9.2,13.8);
-const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,1.6)); renderer.setSize(innerWidth,innerHeight); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15; mount.appendChild(renderer.domElement);
-const controls=new OrbitControls(camera,renderer.domElement); controls.target.set(0,1.55,-.35); controls.enableDamping=true; controls.maxPolarAngle=Math.PI*.48; controls.minDistance=7; controls.maxDistance=23; controls.minAzimuthAngle=-Math.PI*.75; controls.maxAzimuthAngle=Math.PI*.75;
-scene.add(new THREE.HemisphereLight(0xf4fbff,0x8da99c,2.15));
-const sun=new THREE.DirectionalLight(0xfff5e8,2.35);sun.position.set(-5,10,7);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-12;sun.shadow.camera.right=12;sun.shadow.camera.top=12;sun.shadow.camera.bottom=-12;scene.add(sun);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,100); camera.position.set(11.2,8.8,13.2);
+const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(mount.clientWidth||innerWidth,mount.clientHeight||innerHeight); renderer.domElement.style.width="100%"; renderer.domElement.style.height="100%"; renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15; mount.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement); controls.target.set(0,1.45,-.2); controls.enableDamping=true; controls.maxPolarAngle=Math.PI*.48; controls.minDistance=7; controls.maxDistance=23; controls.minAzimuthAngle=-Math.PI*.75; controls.maxAzimuthAngle=Math.PI*.75;
+scene.add(new THREE.HemisphereLight(0xf4fbff,0x8da99c,2.1));
+const sun=new THREE.DirectionalLight(0xfff5e8,2.4);sun.position.set(-5,10,7);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-12;sun.shadow.camera.right=12;sun.shadow.camera.top=12;sun.shadow.camera.bottom=-12;scene.add(sun);
 const mat=(c,r=.85)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
 const wood=mat(0xb9875f),woodLight=mat(0xd6ad7f),cream=mat(0xf7eedb),sage=mat(0x9fbea6),pink=mat(0xe9aeb6),blue=mat(0x9fc5d5),dark=mat(0x53665e),floorMat=mat(0xdcc8a6);
 function box(w,h,d,m,x,y,z,group=scene){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;group.add(o);return o}
@@ -147,45 +150,32 @@ function addProducts(g,seed){
  const labelMats=[mat(0xfff4d8),mat(0xf7dce0),mat(0xd9eaf0),mat(0xe0ecd9),mat(0xf0e0bd)];
  for(let row=0;row<3;row++)for(let i=0;i<5;i++){
   const x=-1.12+i*.56,y=.58+row*.92,z=.03+(i%2)*.04,idx=(i+row+seed)%stockItems.length;
-  const item=stockItems[idx],pack=new THREE.Group();pack.position.set(x,y,z);g.add(pack);
-  const bodyMat=mat(item.color);
+  const pack=new THREE.Group();pack.position.set(x,y,z);g.add(pack);
   let main;
-  if(idx===0){main=new THREE.Mesh(new THREE.CylinderGeometry(.13,.13,.42,18),bodyMat);main.position.y=.2;pack.add(main);const cap=cyl(.065,.065,.07,mat(0xf8f5e9),0,.45,0,pack)}
-  else if(idx===1){main=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.34,20),mat(0xd98b9d));main.position.y=.18;pack.add(main);cyl(.155,.155,.055,mat(0xf6e9d7),0,.38,0,pack)}
-  else if(idx===2){main=box(.32,.32,.25,mat(0xc99c69),0,.17,0,pack);box(.27,.08,.02,mat(0xf5e7c9),0,.2,.14,pack)}
-  else if(idx===3){main=box(.27,.42,.25,mat(0x9bc6a2),0,.21,0,pack);cyl(.055,.055,.08,mat(0xe9d8aa),0,.47,0,pack)}
-  else if(idx===4){main=new THREE.Mesh(new THREE.SphereGeometry(.18,16,12),mat(0xd6a66f));main.scale.set(1,.72,.82);main.position.y=.17;pack.add(main)}
-  else {main=new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,.36,20),mat(0xb8a9d1));main.position.y=.18;pack.add(main);cyl(.145,.145,.045,mat(0xd6dce0),0,.39,0,pack)}
-  const band=box(.22,.12,.018,labelMats[idx%labelMats.length],0,.19,.145,pack);
-  const dot=sphere(.035,mat(0xffffff),.075,.2,.16,pack);
+  if(idx===0){main=new THREE.Mesh(new THREE.CylinderGeometry(.13,.13,.42,18),mat(0xd9e9f3));main.position.y=.2;pack.add(main);cyl(.065,.065,.07,mat(0xf8f5e9),0,.45,0,pack);}
+  else if(idx===1){main=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.34,20),mat(0xd98b9d));main.position.y=.18;pack.add(main);cyl(.155,.155,.055,mat(0xf6e9d7),0,.38,0,pack);}
+  else if(idx===2){main=box(.32,.32,.25,mat(0xc99c69),0,.17,0,pack);box(.27,.08,.02,mat(0xf5e7c9),0,.2,.14,pack);}
+  else if(idx===3){main=box(.27,.42,.25,mat(0x9bc6a2),0,.21,0,pack);cyl(.055,.055,.08,mat(0xe9d8aa),0,.47,0,pack);}
+  else if(idx===4){main=new THREE.Mesh(new THREE.SphereGeometry(.18,16,12),mat(0xd6a66f));main.scale.set(1,.72,.82);main.position.y=.17;pack.add(main);}
+  else {main=new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,.36,20),mat(0xb8a9d1));main.position.y=.18;pack.add(main);cyl(.145,.145,.045,mat(0xd6dce0),0,.39,0,pack);}
+  box(.22,.12,.018,labelMats[idx%labelMats.length],0,.19,.145,pack);
   main.userData.product=true;main.userData.stockIndex=idx;products.push(main);
  }
 }
-
 addProducts(backShelf,0);addProducts(sideShelf,2);
-// Storybook shop details: colorful fascia, shelf headers, tiny jars and produce crates.
-const signBoard=box(2.25,.34,.12,woodLight,-3.7,3.05,-4.0);
-const shelfPlaque=(txt,x,z,color)=>{
+// Colorful shop-category signs and a small fresh-produce display.
+function addShelfSign(label,x,z,color){
  const cv=document.createElement('canvas');cv.width=256;cv.height=72;const c=cv.getContext('2d');
- c.fillStyle=color;c.beginPath();c.roundRect(4,4,248,64,14);c.fill();
- c.fillStyle='#fffaf0';c.font='bold 34px sans-serif';c.textAlign='center';c.fillText(txt,128,49);
- const tx=new THREE.CanvasTexture(cv);const m=new THREE.MeshBasicMaterial({map:tx,transparent:true});
- const q=new THREE.Mesh(new THREE.PlaneGeometry(1.25,.35),m);q.position.set(x,2.88,z);scene.add(q);
-};
-shelfPlaque('饮料 · 牛奶',-3.7,-4.02,'#8eafad');shelfPlaque('零食 · 罐头',4.8,-1.7,'#c58e76');
-// Little front display island with fruit baskets and colorful jars.
-const island=new THREE.Group();scene.add(island);island.position.set(-2.9,.05,1.0);
-box(2.35,.72,1.15,woodLight,0,.38,0,island);box(2.45,.12,1.22,mat(0x9c704d),0,.79,0,island);
-for(let i=0;i<9;i++){
- const x=-.88+(i%3)*.82,z=-.34+Math.floor(i/3)*.34;
- const fruitM=[mat(0xd96f69),mat(0xe5b65e),mat(0x91b77e)][i%3];
- sphere(.16,fruitM,x,.99,z,island);
+ c.fillStyle=color;c.fillRect(0,0,256,72);c.fillStyle='#fffaf0';c.font='bold 32px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(label,128,37);
+ const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
+ const signMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.28,.36),new THREE.MeshBasicMaterial({map:tex}));signMesh.position.set(x,2.88,z);scene.add(signMesh);
 }
-for(let i=0;i<4;i++){
- const jar=new THREE.Group();jar.position.set(.55+(i%2)*.42,0,-.28+Math.floor(i/2)*.48);island.add(jar);
- cyl(.11,.12,.28,[mat(0xd68e9d),mat(0x9fc5d5),mat(0x9fbea6),mat(0xe2bd78)][i],0,.96,0,jar);
- cyl(.12,.12,.045,mat(0xf8efd9),0,1.12,0,jar);
-}
+addShelfSign('饮料 · 牛奶',-3.7,-4.02,'#86aaa5');
+addShelfSign('零食 · 罐头',4.8,-1.7,'#bd8c79');
+const produceIsland=new THREE.Group();scene.add(produceIsland);produceIsland.position.set(-2.9,.05,1.0);
+box(2.25,.72,1.12,woodLight,0,.38,0,produceIsland);box(2.36,.12,1.2,wood,0,.79,0,produceIsland);
+for(let i=0;i<9;i++){const x=-.78+(i%3)*.78,z=-.32+Math.floor(i/3)*.32;const fm=[mat(0xd96f69),mat(0xe5b65e),mat(0x91b77e)][i%3];sphere(.15,fm,x,.99,z,produceIsland);}
+for(let i=0;i<4;i++){const jar=new THREE.Group();jar.position.set(.52+(i%2)*.4,0,-.27+Math.floor(i/2)*.45);produceIsland.add(jar);cyl(.11,.12,.28,[mat(0xd68e9d),mat(0x9fc5d5),mat(0x9fbea6),mat(0xe2bd78)][i],0,.96,0,jar);cyl(.12,.12,.045,mat(0xf8efd9),0,1.12,0,jar);}
 
 // Tap a 3D product to inspect its live price and stock.
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
@@ -210,14 +200,8 @@ const rug=new THREE.Mesh(new THREE.CircleGeometry(1.5,40),mat(0xc6d9c7));rug.rot
 // potted plants
 function plant(x,z){cyl(.28,.34,.42,pink,x,.22,z);for(let i=0;i<5;i++){const a=i*Math.PI*2/5;sphere(.18,sage,x+Math.cos(a)*.22,.65+Math.sin(i)*.08,z+Math.sin(a)*.22)}}
 plant(-6.3,4.4);plant(6.1,4.5);plant(-6.2,-3.2);
-
-// Framed botanical prints on the back wall, in a soft illustrated palette.
-for(let i=0;i<3;i++){
- const x=-5.3+i*1.15;
- box(.72,.82,.08,woodLight,x,3.55,-5.57);
- box(.58,.68,.025,[mat(0xd8e9df),mat(0xf1dce0),mat(0xdce8f1)][i],x,3.55,-5.51);
- sphere(.13,sage,x,3.62,-5.47);sphere(.08,pink,x+.14,3.48,-5.46);
-}
+// Small framed botanical illustrations.
+for(let i=0;i<3;i++){const x=-5.25+i*1.1;box(.68,.78,.07,woodLight,x,3.55,-5.57);box(.55,.65,.025,[mat(0xd8e9df),mat(0xf1dce0),mat(0xdce8f1)][i],x,3.55,-5.51);sphere(.12,sage,x,3.62,-5.47);sphere(.075,pink,x+.13,3.48,-5.46);}
 // hanging lamps
 for(const x of [-3,3]){cyl(.04,.04,1,dark,x,4.1,0);cyl(.48,.18,.35,mat(0xf4dfac),x,3.55,0)}
 // cute cat
@@ -415,7 +399,7 @@ if(choice && choice.it.stock>0){
 }
 scene.remove(c);customers.splice(i,1);if(auto&&orders>0&&orders%4===0&&money>30)restock();updateUI();save()}}}if(daySeconds>65){daySeconds=0;document.getElementById('storeStatus').textContent='客人慢慢变多了，继续加油！'}}renderer.render(scene,camera)}
 requestAnimationFrame(animate);
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+addEventListener('resize',()=>{const w=mount.clientWidth||innerWidth,h=mount.clientHeight||innerHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h)});
 addEventListener('pagehide',save);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save()});
 setTimeout(()=>document.getElementById('help').classList.add('hide'),7000);
